@@ -1,3 +1,4 @@
+import { hostname } from 'node:os'
 import { DEFAULT_LEAD_DAYS } from './domain/reminder-schedule'
 import type { TariffTable } from './domain/tariff'
 import { DEFAULT_TARIFF } from './infrastructure/default-tariff'
@@ -13,6 +14,8 @@ export interface UpkeepConfig {
   readonly reminderBackoffMs: number
   readonly sweepEveryMs: number
   readonly workerConcurrency: number
+  /** Recorded in each job result: which competing consumer handled it. */
+  readonly workerName: string
   readonly mailSmtpUrl: string | null
   readonly mailFrom: string
   readonly mailTo: string
@@ -54,6 +57,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): UpkeepConfig {
     reminderBackoffMs: positiveInt(env.REMINDER_BACKOFF_MS, 5000),
     sweepEveryMs: positiveInt(env.SWEEP_EVERY_MS, 15 * 60_000),
     workerConcurrency: positiveInt(env.WORKER_CONCURRENCY, 4),
+    workerName: env.WORKER_NAME || hostname(),
     mailSmtpUrl: env.MAIL_SMTP_URL || null,
     mailFrom: env.MAIL_FROM || 'upkeep@example.com',
     mailTo: env.MAIL_TO || 'owner@example.com',

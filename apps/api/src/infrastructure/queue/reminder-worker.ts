@@ -33,6 +33,7 @@ export class ReminderWorker {
     private readonly settings: QueueSettings & {
       readonly concurrency: number
       readonly sweepEveryMs: number
+      readonly name: string
     },
     private readonly commands: CommandBus,
   ) {
@@ -64,7 +65,11 @@ export class ReminderWorker {
     if (job.name !== FIRE_JOB) throw new Error(`Unknown job ${job.name}`)
     const { reminderId } = job.data as FireJobData
     const notification = await this.commands.execute(new FireReminderCommand(reminderId))
-    return notification ? { notificationId: (notification as { id: string }).id } : { skipped: true }
+    // The job result records which competing consumer handled it (visible in the queue and in tests).
+    const worker = this.settings.name
+    return notification
+      ? { notificationId: (notification as { id: string }).id, worker }
+      : { skipped: true, worker }
   }
 
   private async onFailed(job: Job | undefined, error: Error): Promise<void> {

@@ -138,8 +138,8 @@ Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` 
 
 ## Status
 
-Working: the whole flow above, with 37 unit tests (domain + handlers), 3 web tests and 4 Testcontainers
-integration tests (including GraphQL e2e through supertest and a real graphql-ws subscription).
+Working: the whole flow above, with 37 unit tests (domain + handlers), 3 web tests and 5 Testcontainers
+integration tests (including GraphQL e2e through supertest and a real graphql-ws subscription, and two competing workers firing each reminder exactly once).
 
 Known gaps and next steps:
 

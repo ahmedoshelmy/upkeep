@@ -41,6 +41,7 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
   let config: UpkeepConfig
   let api: INestApplication
   let worker: INestApplicationContext
+  let secondWorker: INestApplicationContext | undefined
   let ws: Client
   let probe: Queue
 
@@ -67,10 +68,15 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
     const apiModule = await Test.createTestingModule({ imports: [ApiModule.register(config)] }).compile()
     api = apiModule.createNestApplication()
     await api.listen(0, '127.0.0.1')
+    // Two workers on one queue: competing consumers.
     const workerModule = await Test.createTestingModule({
-      imports: [WorkerModule.register(config)],
+      imports: [WorkerModule.register({ ...config, workerName: 'worker-a' })],
     }).compile()
     worker = await workerModule.init()
+    const secondModule = await Test.createTestingModule({
+      imports: [WorkerModule.register({ ...config, workerName: 'worker-b' })],
+    }).compile()
+    secondWorker = await secondModule.init()
     const { port } = api.getHttpServer().address() as AddressInfo
     ws = createClient({ url: `ws://127.0.0.1:${port}/graphql`, webSocketImpl: WebSocket, lazy: false })
     probe = new Queue(REMINDER_QUEUE_NAME, {
@@ -83,6 +89,7 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
     await ws?.dispose()
     await probe?.close()
     await worker?.close()
+    await secondWorker?.close()
     await api?.close()
     await Promise.all([postgres?.stop(), redis?.stop()])
   })
@@ -215,6 +222,34 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
     expect(res.errors).toBeUndefined()
     expect(res.data!.assets.length).toBeGreaterThanOrEqual(2)
     expect(res.data!.dueSoon.map((d) => d.title)).toContain('Tyres')
+  })
+
+  it('competing workers fire each reminder exactly once', async () => {
+    const carId = await registerCar('Fleet car')
+    const expired = new Date(Date.now() - 86_400_000)
+    const ids: string[] = []
+    for (let i = 0; i < 8; i++) {
+      const res = await gql<{ addRenewal: { id: string } }>(
+        `mutation($input: AddRenewalInput!) { addRenewal(input: $input) { id } }`,
+        { input: { assetId: carId, kind: 'INSURANCE', title: `Policy ${i}`, expiresAt: expired } },
+      )
+      ids.push(res.data!.addRenewal.id)
+    }
+    const titles = await eventually(
+      async () =>
+        (await gql<{ notifications: { title: string }[] }>(`{ notifications(limit: 100) { title } }`))
+          .data!.notifications.map((n) => n.title)
+          .filter((t) => t.startsWith('Policy ')),
+      (list) => list.length >= 8,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(new Set(titles).size).toBe(8)
+    expect(titles).toHaveLength(8)
+    const completed = await probe.getJobs(['completed'])
+    const fired = completed.filter((j) => j.name === 'fire')
+    const consumers = new Set(fired.map((j) => (j.returnvalue as { worker: string }).worker))
+    expect(consumers.size).toBeGreaterThan(0)
+    expect([...consumers].every((c) => c === 'worker-a' || c === 'worker-b')).toBe(true)
   })
 
   it('retries a failing job with backoff and then moves it to the dead-letter queue', async () => {

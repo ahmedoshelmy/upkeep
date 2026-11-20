@@ -25,7 +25,12 @@ export class WorkerRunner implements OnApplicationBootstrap, OnModuleDestroy {
     commands: CommandBus,
   ) {
     this.worker = new ReminderWorker(
-      { ...settings, concurrency: config.workerConcurrency, sweepEveryMs: config.sweepEveryMs },
+      {
+        ...settings,
+        concurrency: config.workerConcurrency,
+        sweepEveryMs: config.sweepEveryMs,
+        name: config.workerName,
+      },
       commands,
     )
   }
