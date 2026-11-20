@@ -242,7 +242,7 @@ export function Forms() {
           aria-label="Litres"
         />
         <input name="cost" type="number" min={0} step="any" placeholder="Cost" required aria-label="Cost" />
-        <label className="small muted">
+        <label className="small muted check">
           <input name="fullTank" type="checkbox" defaultChecked /> Full tank
         </label>
         <button type="submit">Record fuel-up</button>
