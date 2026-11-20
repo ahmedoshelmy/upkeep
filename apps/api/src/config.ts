@@ -2,6 +2,7 @@ import { hostname } from 'node:os'
 import { DEFAULT_LEAD_DAYS } from './domain/reminder-schedule'
 import type { TariffTable } from './domain/tariff'
 import { DEFAULT_TARIFF } from './infrastructure/default-tariff'
+import { DEFAULT_QUERY_LIMITS, type QueryLimits } from './presentation/graphql/query-limits'
 
 export interface UpkeepConfig {
   readonly port: number
@@ -12,6 +13,9 @@ export interface UpkeepConfig {
   readonly leadDays: readonly number[]
   readonly reminderAttempts: number
   readonly reminderBackoffMs: number
+  /** Tries for one reminder (re)plan before the saga gives up and logs it. */
+  readonly planAttempts: number
+  readonly planBackoffMs: number
   readonly sweepEveryMs: number
   readonly workerConcurrency: number
   /** Recorded in each job result: which competing consumer handled it. */
@@ -21,6 +25,8 @@ export interface UpkeepConfig {
   readonly mailTo: string
   readonly tariff: TariffTable
   readonly demoData: boolean
+  /** GraphQL depth and cost limits, checked before any resolver runs. */
+  readonly queryLimits: QueryLimits
 }
 
 export const UPKEEP_CONFIG = Symbol('UpkeepConfig')
@@ -55,6 +61,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): UpkeepConfig {
     leadDays: leadDays(env.LEAD_DAYS),
     reminderAttempts: positiveInt(env.REMINDER_ATTEMPTS, 5),
     reminderBackoffMs: positiveInt(env.REMINDER_BACKOFF_MS, 5000),
+    planAttempts: positiveInt(env.PLAN_ATTEMPTS, 4),
+    planBackoffMs: positiveInt(env.PLAN_BACKOFF_MS, 500),
     sweepEveryMs: positiveInt(env.SWEEP_EVERY_MS, 15 * 60_000),
     workerConcurrency: positiveInt(env.WORKER_CONCURRENCY, 4),
     workerName: env.WORKER_NAME || hostname(),
@@ -63,5 +71,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): UpkeepConfig {
     mailTo: env.MAIL_TO || 'owner@example.com',
     tariff: env.TARIFF_JSON ? (JSON.parse(env.TARIFF_JSON) as TariffTable) : DEFAULT_TARIFF,
     demoData: env.DEMO_DATA === 'true',
+    queryLimits: {
+      maxDepth: positiveInt(env.GRAPHQL_MAX_DEPTH, DEFAULT_QUERY_LIMITS.maxDepth),
+      maxCost: positiveInt(env.GRAPHQL_MAX_COST, DEFAULT_QUERY_LIMITS.maxCost),
+      listFactor: DEFAULT_QUERY_LIMITS.listFactor,
+    },
   }
 }

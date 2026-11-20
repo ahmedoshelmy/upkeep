@@ -36,6 +36,7 @@ import {
   type UpkeepSettings,
 } from './ports'
 import type { Notification, Reminder, ReminderSubject } from './records'
+import { type RetryPolicy, retryWithBackoff } from './retry'
 
 interface DueSubject {
   readonly subjectType: ReminderSubject
@@ -45,17 +46,34 @@ interface DueSubject {
   readonly dueAt: Date
 }
 
-/** Replaces a subject's reminder plan: cancel what was pending, store the new rows, enqueue one delayed job each. */
+/**
+ * Replaces a subject's reminder plan: cancel what was pending, store the new rows, enqueue one delayed job each.
+ * A failed try (Postgres or Redis hiccup) is retried with backoff; a retry first cancels whatever the failed try
+ * stored or enqueued, so repeating it is safe.
+ */
 class ReminderPlanner {
+  private readonly logger = new Logger(ReminderPlanner.name)
+
   constructor(
     private readonly reminders: ReminderRepository,
     private readonly queue: ReminderQueue,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
     private readonly leadDays: readonly number[],
+    private readonly retry: RetryPolicy,
   ) {}
 
-  async replan(subject: DueSubject | null, subjectId: string): Promise<Reminder[]> {
+  replan(subject: DueSubject | null, subjectId: string): Promise<Reminder[]> {
+    return retryWithBackoff(
+      () => this.replanOnce(subject, subjectId),
+      this.retry,
+      this.clock,
+      (attempt, e) =>
+        this.logger.warn(`plan for ${subjectId} failed (try ${attempt}): ${(e as Error).message}`),
+    )
+  }
+
+  private async replanOnce(subject: DueSubject | null, subjectId: string): Promise<Reminder[]> {
     const now = this.clock.now()
     const plan: Reminder[] = subject
       ? planReminders(subject.dueAt, this.leadDays, now).map((p) => ({
@@ -83,7 +101,7 @@ abstract class PlanningHandler {
     clock: Clock,
     settings: UpkeepSettings,
   ) {
-    this.planner = new ReminderPlanner(reminders, queue, ids, clock, settings.leadDays)
+    this.planner = new ReminderPlanner(reminders, queue, ids, clock, settings.leadDays, settings.planRetry)
   }
 }
 

@@ -268,4 +268,19 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
     expect(letter.attemptsMade).toBe(3)
     expect(letter.failedReason).toContain('not visible')
   })
+  it('rejects a too costly query with 400 before any resolver runs', async () => {
+    const nested = 'assets { tasks { reminders { id } } }' // 1 + 10 x (1 + 10 x 11) = 1111 with list factor 10
+    await request(api.getHttpServer())
+      .post('/graphql')
+      .send({ query: `{ ${nested} }` })
+      .expect(200)
+    const fiveTimes = Array.from({ length: 5 }, (_, i) => `a${i}: ${nested}`).join(' ')
+    const res = await request(api.getHttpServer())
+      .post('/graphql')
+      .send({ query: `{ ${fiveTimes} }` })
+      .expect(400)
+    const [error] = (res.body as Gql<unknown>).errors ?? []
+    expect(error?.extensions?.code).toBe('GRAPHQL_VALIDATION_FAILED')
+    expect(error?.message).toMatch(/^Query cost 5555 exceeds the limit of 5000/)
+  })
 })

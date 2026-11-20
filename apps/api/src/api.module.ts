@@ -9,6 +9,7 @@ import { infrastructureProviders } from './infrastructure/providers'
 import { formatError } from './presentation/graphql/errors'
 import { LiveNotifications } from './presentation/graphql/live-notifications'
 import { LoaderFactory } from './presentation/graphql/loaders'
+import { queryLimitsRule } from './presentation/graphql/query-limits'
 import {
   AssetResolver,
   DueResolver,
@@ -39,6 +40,7 @@ export class ApiModule {
           subscriptions: { 'graphql-ws': true },
           playground: false,
           introspection: true,
+          validationRules: [queryLimitsRule(config.queryLimits)],
           formatError,
         }),
       ],

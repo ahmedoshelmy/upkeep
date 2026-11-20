@@ -57,7 +57,11 @@ export function infrastructureProviders(config: UpkeepConfig): Provider[] {
     attempts: config.reminderAttempts,
     backoffMs: config.reminderBackoffMs,
   }
-  const settings: UpkeepSettings = { leadDays: config.leadDays, tariff: config.tariff }
+  const settings: UpkeepSettings = {
+    leadDays: config.leadDays,
+    tariff: config.tariff,
+    planRetry: { attempts: config.planAttempts, baseDelayMs: config.planBackoffMs },
+  }
   return [
     { provide: UPKEEP_CONFIG, useValue: config },
     { provide: UPKEEP_SETTINGS, useValue: settings },

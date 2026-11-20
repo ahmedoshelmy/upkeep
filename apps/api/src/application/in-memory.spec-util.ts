@@ -18,9 +18,14 @@ import type { Notification, Reminder, StoredReading } from './records'
 
 /** Hand-rolled fakes for handler tests: plain maps, a settable clock and a queue that records what it was asked. */
 export class FakeClock implements Clock {
+  readonly slept: number[] = []
   constructor(public current: Date) {}
   now(): Date {
     return this.current
+  }
+  async sleep(ms: number): Promise<void> {
+    this.slept.push(ms)
+    this.current = new Date(this.current.getTime() + ms)
   }
 }
 
@@ -145,7 +150,13 @@ export class MemoryNotifications implements NotificationRepository {
 export class RecordingQueue implements ReminderQueue {
   readonly scheduled: { reminderId: string; delayMs: number }[] = []
   readonly cancelled: string[] = []
+  /** The next n schedule calls throw, like a Redis blip. */
+  failNextSchedules = 0
   async schedule(reminderId: string, delayMs: number): Promise<void> {
+    if (this.failNextSchedules > 0) {
+      this.failNextSchedules--
+      throw new Error('redis unavailable')
+    }
     this.scheduled.push({ reminderId, delayMs })
   }
   async cancel(ids: readonly string[]): Promise<void> {

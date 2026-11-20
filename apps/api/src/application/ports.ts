@@ -3,10 +3,13 @@ import type { MaintenanceTask } from '../domain/maintenance-task'
 import type { Renewal } from '../domain/renewal'
 import type { TariffTable } from '../domain/tariff'
 import type { Notification, Reminder, StoredReading } from './records'
+import type { RetryPolicy } from './retry'
 
 export const CLOCK = Symbol('Clock')
 export interface Clock {
   now(): Date
+  /** Waits (retry backoff). The test clock just moves its time forward. */
+  sleep(ms: number): Promise<void>
 }
 
 export const ID_GENERATOR = Symbol('IdGenerator')
@@ -86,4 +89,6 @@ export const UPKEEP_SETTINGS = Symbol('UpkeepSettings')
 export interface UpkeepSettings {
   readonly leadDays: readonly number[]
   readonly tariff: TariffTable
+  /** Retries of a reminder (re)plan when Postgres or Redis hiccups; the saga has no other retry. */
+  readonly planRetry: RetryPolicy
 }

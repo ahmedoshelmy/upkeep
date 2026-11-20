@@ -41,7 +41,11 @@ function setup() {
   const bus = new RecordingBus()
   const mailer = new FailingMailer()
   const events = { publish: jest.fn() } as unknown as EventBus
-  const settings = { leadDays: [30, 7, 1], tariff: { currency: 'EGP', bands: [] } }
+  const settings = {
+    leadDays: [30, 7, 1],
+    tariff: { currency: 'EGP', bands: [] },
+    planRetry: { attempts: 3, baseDelayMs: 100 },
+  }
   const plan = new PlanTaskRemindersHandler(
     tasks,
     new DueCalculator(readings),
@@ -93,6 +97,39 @@ describe('reminder handlers', () => {
     expect(s.queue.cancelled).toEqual(first.map((r) => r.id))
     const statuses = [...s.reminders.rows.values()].map((r) => r.status)
     expect(statuses.filter((x) => x === 'CANCELLED')).toHaveLength(first.length)
+  })
+
+  it('retries a plan whose enqueue failed, cancelling the half-stored try first', async () => {
+    const s = setup()
+    await s.tasks.save({
+      id: 'task',
+      assetId: 'car',
+      title: 'Oil change',
+      rule: intervalRule(null, 3),
+      baseline: { doneAt: start, doneKm: null },
+      fixedDueAt: null,
+    })
+    s.queue.failNextSchedules = 2
+    const plan = await s.plan.execute(new PlanTaskRemindersCommand('task'))
+    expect(s.clock.slept).toEqual([100, 200])
+    expect(s.queue.scheduled.map((j) => j.reminderId)).toEqual(plan.map((r) => r.id))
+    const live = [...s.reminders.rows.values()].filter((r) => r.status === 'SCHEDULED')
+    expect(live.map((r) => r.id)).toEqual(plan.map((r) => r.id))
+    expect(s.queue.cancelled).toHaveLength(8)
+  })
+
+  it('gives up after the last try and rethrows', async () => {
+    const s = setup()
+    await s.tasks.save({
+      id: 'task',
+      assetId: 'car',
+      title: 'Oil change',
+      rule: intervalRule(null, 3),
+      baseline: { doneAt: start, doneKm: null },
+      fixedDueAt: null,
+    })
+    s.queue.failNextSchedules = 3
+    await expect(s.plan.execute(new PlanTaskRemindersCommand('task'))).rejects.toThrow('redis unavailable')
   })
 
   it('fires once: a redelivered job is a no-op, and a mail failure does not fail the job', async () => {
