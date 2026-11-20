@@ -1,18 +1,67 @@
-type AssetType {
+input AddRenewalInput {
+  assetId: ID!
+  expiresAt: DateTime!
+  kind: RenewalKind!
+  title: String!
+}
+
+input AddTaskInput {
+  assetId: ID!
+
+  """A known due date (service sticker); the earliest side wins"""
+  dueAt: DateTime
+  everyKm: Int
+  everyMonths: Int
+
+  """Defaults to now"""
+  lastDoneAt: DateTime
+  lastDoneKm: Float
+  title: String!
+}
+
+type Asset {
+  createdAt: DateTime!
   id: ID!
   kind: AssetKind!
   name: String!
-  createdAt: DateTime!
-  tasks: [MaintenanceTask!]!
-  renewals: [Renewal!]!
   readings: [Reading!]!
+  renewals: [Renewal!]!
+  tasks: [MaintenanceTask!]!
   usage: Usage!
 }
 
 enum AssetKind {
+  APPLIANCE
   CAR
   HOME
-  APPLIANCE
+}
+
+type BillEstimate {
+  bandIndex: Int!
+  currency: String!
+  fee: Float!
+  kwh: Float!
+  lines: [BillLine!]!
+  total: Float!
+}
+
+type BillLine {
+  amount: Float!
+  kwh: Float!
+  pricePerKwh: Float!
+}
+
+input CompleteTaskInput {
+  doneAt: DateTime
+  doneKm: Float
+  taskId: ID!
+}
+
+type ConsumptionPeriod {
+  from: DateTime!
+  perDay: Float!
+  to: DateTime!
+  units: Float!
 }
 
 """
@@ -20,183 +69,99 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-type Reminder {
-  id: ID!
-  subjectType: SubjectType!
-  subjectId: ID!
-  title: String!
-  dueAt: DateTime!
-  fireAt: DateTime!
-
-  """
-  0 is the reminder at the due moment itself
-  """
-  leadDays: Float!
-  status: ReminderStatus!
-}
-
-enum SubjectType {
-  TASK
-  RENEWAL
-}
-
-enum ReminderStatus {
-  SCHEDULED
-  FIRED
-  CANCELLED
-  SNOOZED
-}
-
-type MaintenanceTask {
-  id: ID!
-  assetId: ID!
-  title: String!
-  everyKm: Int
-  everyMonths: Int
-  lastDoneAt: DateTime!
-  lastDoneKm: Float
-
-  """
-  Whichever comes first of time, distance and a fixed date
-  """
-  due: Due
-  reminders: [Reminder!]!
-}
-
-type Renewal {
-  id: ID!
-  assetId: ID!
-  kind: RenewalKind!
-  title: String!
-  expiresAt: DateTime!
-  reminders: [Reminder!]!
-}
-
-enum RenewalKind {
-  LICENSE
-  INSURANCE
-  WARRANTY
-  INSPECTION
-  OTHER
-}
-
-type Reading {
-  id: ID!
-  meter: Meter!
-  at: DateTime!
-  value: Float!
-}
-
-enum Meter {
-  ODOMETER_KM
-  ELECTRICITY_KWH
-}
-
 type Due {
   dueAt: DateTime!
   dueKm: Float
   reason: DueReason!
 }
 
-"""
-Which side of the rule decided the due date
-"""
-enum DueReason {
-  TIME
-  DISTANCE
-  FIXED_DATE
-  EXPIRY
-}
-
 type DueItem {
+  asset: Asset
+  assetId: ID!
   dueAt: DateTime!
   dueKm: Float
   reason: DueReason!
-  subjectType: SubjectType!
   subjectId: ID!
-  assetId: ID!
+  subjectType: SubjectType!
   title: String!
-  asset: AssetType
 }
 
-type ConsumptionPeriod {
-  from: DateTime!
-  to: DateTime!
-  units: Float!
-  perDay: Float!
+"""Which side of the rule decided the due date"""
+enum DueReason {
+  DISTANCE
+  EXPIRY
+  FIXED_DATE
+  TIME
 }
 
-type BillLine {
-  kwh: Float!
-  pricePerKwh: Float!
-  amount: Float!
+type MaintenanceTask {
+  assetId: ID!
+
+  """Whichever comes first of time, distance and a fixed date"""
+  due: Due
+  everyKm: Int
+  everyMonths: Int
+  id: ID!
+  lastDoneAt: DateTime!
+  lastDoneKm: Float
+  reminders: [Reminder!]!
+  title: String!
 }
 
-type BillEstimate {
-  kwh: Float!
-  bandIndex: Int!
-  lines: [BillLine!]!
-  fee: Float!
-  total: Float!
-  currency: String!
+enum Meter {
+  ELECTRICITY_KWH
+  ODOMETER_KM
 }
 
-type Usage {
-  periods: [ConsumptionPeriod!]!
+type Mutation {
+  addRenewal(input: AddRenewalInput!): Renewal!
 
-  """
-  km or kWh per day over the last 90 days
-  """
-  perDay: Float
-  monthlyBill: BillEstimate
+  """Reminders are planned asynchronously by the reminder saga"""
+  addTask(input: AddTaskInput!): MaintenanceTask!
+
+  """Done: the baseline resets and the next due date is planned"""
+  completeTask(input: CompleteTaskInput!): MaintenanceTask!
+  markNotificationRead(id: ID!): Notification!
+
+  """Odometer (car) or electricity meter (home); must not go backwards"""
+  recordReading(input: RecordReadingInput!): Reading!
+  registerAsset(input: RegisterAssetInput!): Asset!
+  renew(expiresAt: DateTime!, id: ID!): Renewal!
+
+  """Push one reminder later by some hours (max 30 days)"""
+  snoozeReminder(hours: Float!, id: ID!): Reminder!
 }
 
 type Notification {
-  id: ID!
-  reminderId: ID!
   assetId: ID!
-  title: String!
-  message: String!
   createdAt: DateTime!
+  id: ID!
+  message: String!
   readAt: DateTime
+  reminderId: ID!
+  title: String!
 }
 
 type Query {
-  assets: [AssetType!]!
-  asset(id: ID!): AssetType
+  asset(id: ID!): Asset
+  assets: [Asset!]!
 
-  """
-  Tasks and renewals due within the window, overdue first
-  """
+  """Tasks and renewals due within the window, overdue first"""
   dueSoon(withinDays: Int! = 30): [DueItem!]!
   notifications(limit: Int! = 20, unreadOnly: Boolean! = false): [Notification!]!
 }
 
-type Mutation {
-  registerAsset(input: RegisterAssetInput!): AssetType!
+type Reading {
+  at: DateTime!
+  id: ID!
+  meter: Meter!
+  value: Float!
+}
 
-  """
-  Reminders are planned asynchronously by the reminder saga
-  """
-  addTask(input: AddTaskInput!): MaintenanceTask!
-
-  """
-  Done: the baseline resets and the next due date is planned
-  """
-  completeTask(input: CompleteTaskInput!): MaintenanceTask!
-  addRenewal(input: AddRenewalInput!): Renewal!
-  renew(id: ID!, expiresAt: DateTime!): Renewal!
-
-  """
-  Odometer (car) or electricity meter (home); must not go backwards
-  """
-  recordReading(input: RecordReadingInput!): Reading!
-  markNotificationRead(id: ID!): Notification!
-
-  """
-  Push one reminder later by some hours (max 30 days)
-  """
-  snoozeReminder(id: ID!, hours: Float!): Reminder!
+input RecordReadingInput {
+  assetId: ID!
+  at: DateTime
+  value: Float!
 }
 
 input RegisterAssetInput {
@@ -204,41 +169,46 @@ input RegisterAssetInput {
   name: String!
 }
 
-input AddTaskInput {
-  assetId: ID!
+type Reminder {
+  dueAt: DateTime!
+  fireAt: DateTime!
+  id: ID!
+
+  """0 is the reminder at the due moment itself"""
+  leadDays: Float!
+  status: ReminderStatus!
+  subjectId: ID!
+  subjectType: SubjectType!
   title: String!
-  everyKm: Int
-  everyMonths: Int
-
-  """
-  Defaults to now
-  """
-  lastDoneAt: DateTime
-  lastDoneKm: Float
-
-  """
-  A known due date (service sticker); the earliest side wins
-  """
-  dueAt: DateTime
 }
 
-input CompleteTaskInput {
-  taskId: ID!
-  doneAt: DateTime
-  doneKm: Float
+enum ReminderStatus {
+  CANCELLED
+  FIRED
+  SCHEDULED
+  SNOOZED
 }
 
-input AddRenewalInput {
+type Renewal {
   assetId: ID!
-  kind: RenewalKind!
-  title: String!
   expiresAt: DateTime!
+  id: ID!
+  kind: RenewalKind!
+  reminders: [Reminder!]!
+  title: String!
 }
 
-input RecordReadingInput {
-  assetId: ID!
-  value: Float!
-  at: DateTime
+enum RenewalKind {
+  INSPECTION
+  INSURANCE
+  LICENSE
+  OTHER
+  WARRANTY
+}
+
+enum SubjectType {
+  RENEWAL
+  TASK
 }
 
 type Subscription {
@@ -246,4 +216,12 @@ type Subscription {
   Live reminders over graphql-ws, fanned out from the worker through Redis
   """
   notificationAdded: Notification!
+}
+
+type Usage {
+  monthlyBill: BillEstimate
+
+  """km or kWh per day over the last 90 days"""
+  perDay: Float
+  periods: [ConsumptionPeriod!]!
 }
