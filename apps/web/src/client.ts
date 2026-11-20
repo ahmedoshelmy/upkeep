@@ -9,6 +9,8 @@ const ws = createWsClient({ url: wsUrl, retryAttempts: Infinity, shouldRetry: ()
 /** Queries and mutations over HTTP; subscriptions over graphql-ws on the same path (nginx upgrades it). */
 export const client = new Client({
   url: httpUrl,
+  // POST only: Apollo's CSRF prevention rejects simple GET requests without a preflight header.
+  preferGetMethod: false,
   exchanges: [
     cacheExchange,
     fetchExchange,
