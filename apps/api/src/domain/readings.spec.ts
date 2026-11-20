@@ -43,7 +43,9 @@ describe('meter readings', () => {
 
   it('does not project from too little data or flat usage', () => {
     expect(projectUsage(readings.slice(0, 1))).toBeNull()
-    expect(projectUsage([readings[0], { at: new Date(readings[0].at.getTime() + 3_600_000), value: 10_001 }])).toBeNull()
+    expect(
+      projectUsage([readings[0], { at: new Date(readings[0].at.getTime() + 3_600_000), value: 10_001 }]),
+    ).toBeNull()
     expect(dateWhenReaching({ lastValue: 5, lastAt: at('2026-01-01'), perDay: 0 }, 10)).toBeNull()
   })
 })

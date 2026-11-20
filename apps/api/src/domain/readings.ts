@@ -24,8 +24,10 @@ export function assertMonotonic(existing: readonly Reading[], next: Reading): vo
   ensure(Number.isFinite(next.value) && next.value >= 0, 'A reading must be a non-negative number')
   for (const r of existing) {
     if (r.at.getTime() === next.at.getTime()) ensure(false, 'There is already a reading at that moment')
-    if (r.at < next.at) ensure(r.value <= next.value, `Reading ${next.value} is below an earlier reading ${r.value}`)
-    if (r.at > next.at) ensure(r.value >= next.value, `Reading ${next.value} is above a later reading ${r.value}`)
+    if (r.at < next.at)
+      ensure(r.value <= next.value, `Reading ${next.value} is below an earlier reading ${r.value}`)
+    if (r.at > next.at)
+      ensure(r.value >= next.value, `Reading ${next.value} is above a later reading ${r.value}`)
   }
 }
 

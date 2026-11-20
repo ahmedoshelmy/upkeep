@@ -53,7 +53,10 @@ export function estimateBill(table: TariffTable, monthlyKwh: number): BillEstima
     if (kwh > 0) lines.push({ kwh, pricePerKwh: slice.pricePerKwh, amount: round2(kwh * slice.pricePerKwh) })
     billed = top
   }
-  ensure(billed >= monthlyKwh, 'The band slices do not cover the consumption; the last slice needs upToKwh null')
+  ensure(
+    billed >= monthlyKwh,
+    'The band slices do not cover the consumption; the last slice needs upToKwh null',
+  )
   const energy = lines.reduce((sum, l) => sum + l.amount, 0)
   return {
     kwh: monthlyKwh,
