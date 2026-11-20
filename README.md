@@ -1,5 +1,12 @@
 # Upkeep
 
+[![CI](https://github.com/ahmedoshelmy/upkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedoshelmy/upkeep/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![NestJS](https://img.shields.io/badge/NestJS-TypeScript-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![GraphQL](https://img.shields.io/badge/GraphQL-subscriptions-E10098?logo=graphql&logoColor=white)](https://graphql.org/)
+
+Part of the [systems portfolio](https://github.com/ahmedoshelmy/systems-portfolio).
+
 Car and home upkeep with reminders that actually fire: maintenance intervals ("every 10 000 km or 6 months,
 whichever comes first"), odometer and electricity meter readings, licence/insurance/warranty renewals, and
 reminders 30, 7 and 1 days ahead plus at the due moment, delivered live in the browser (GraphQL subscription) and
