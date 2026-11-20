@@ -1,4 +1,5 @@
 import type { Asset } from '../domain/asset'
+import type { FuelUp } from '../domain/fuel'
 import type { MaintenanceTask } from '../domain/maintenance-task'
 import type { Renewal } from '../domain/renewal'
 import type { TariffTable } from '../domain/tariff'
@@ -37,6 +38,13 @@ export const READINGS = Symbol('ReadingRepository')
 export interface ReadingRepository {
   add(reading: StoredReading): Promise<void>
   listByAssets(assetIds: readonly string[]): Promise<StoredReading[]>
+}
+
+export const FUEL_UPS = Symbol('FuelUpRepository')
+export interface FuelUpRepository {
+  /** Stores the fuel-up and its odometer reading in one transaction. */
+  addWithReading(fuelUp: FuelUp, reading: StoredReading): Promise<void>
+  listByAssets(assetIds: readonly string[]): Promise<FuelUp[]>
 }
 
 export const RENEWALS = Symbol('RenewalRepository')

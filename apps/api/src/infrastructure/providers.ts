@@ -4,6 +4,7 @@ import { UPKEEP_CONFIG, type UpkeepConfig } from '../config'
 import {
   ASSETS,
   CLOCK,
+  FUEL_UPS,
   ID_GENERATOR,
   MAILER,
   NOTIFICATIONS,
@@ -18,10 +19,12 @@ import {
 } from '../application/ports'
 import { RedisNotificationBus } from './messaging/redis-notification-bus'
 import { SmtpMailer } from './messaging/smtp-mailer'
+import { FuelUps1763800000000 } from './persistence/fuel-ups.migration'
 import { InitialSchema1763700000000 } from './persistence/initial-schema.migration'
 import {
   DATA_SOURCE,
   SqlAssetRepository,
+  SqlFuelUpRepository,
   SqlNotificationRepository,
   SqlReadingRepository,
   SqlReminderRepository,
@@ -74,7 +77,7 @@ export function infrastructureProviders(config: UpkeepConfig): Provider[] {
         new DataSource({
           type: 'postgres',
           url: config.databaseUrl,
-          migrations: [InitialSchema1763700000000],
+          migrations: [InitialSchema1763700000000, FuelUps1763800000000],
           migrationsRun: true,
           extra: { max: 10 },
         }).initialize(),
@@ -82,6 +85,7 @@ export function infrastructureProviders(config: UpkeepConfig): Provider[] {
     { provide: ASSETS, useClass: SqlAssetRepository },
     { provide: TASKS, useClass: SqlTaskRepository },
     { provide: READINGS, useClass: SqlReadingRepository },
+    { provide: FUEL_UPS, useClass: SqlFuelUpRepository },
     { provide: RENEWALS, useClass: SqlRenewalRepository },
     { provide: REMINDERS, useClass: SqlReminderRepository },
     { provide: NOTIFICATIONS, useClass: SqlNotificationRepository },

@@ -14,6 +14,7 @@ import {
   Subscription,
 } from '@nestjs/graphql'
 import type { Asset } from '../../domain/asset'
+import { type FuelEconomy, type FuelUp, fuelEconomy } from '../../domain/fuel'
 import type { MaintenanceTask } from '../../domain/maintenance-task'
 import type { Renewal } from '../../domain/renewal'
 import {
@@ -21,6 +22,7 @@ import {
   AddTaskCommand,
   CompleteTaskCommand,
   MarkNotificationReadCommand,
+  RecordFuelUpCommand,
   RecordReadingCommand,
   RegisterAssetCommand,
   RenewCommand,
@@ -45,8 +47,11 @@ import {
   CompleteTaskInput,
   DueItemType,
   DueType,
+  FuelEconomyType,
+  FuelUpType,
   NotificationType,
   ReadingType,
+  RecordFuelUpInput,
   RecordReadingInput,
   RegisterAssetInput,
   ReminderType,
@@ -98,6 +103,23 @@ export class AssetResolver {
   @ResolveField(() => UsageType)
   usage(@Parent() asset: Asset): Promise<UsageReport> {
     return this.queries.execute(new UsageQuery(asset.id))
+  }
+
+  @ResolveField(() => [FuelUpType], { description: 'Lowest odometer first' })
+  fuelUps(@Parent() asset: Asset, @Context() ctx: Ctx): Promise<FuelUp[]> {
+    return this.loaders.for(ctx).fuelUpsByAsset.load(asset.id)
+  }
+
+  @ResolveField(() => FuelEconomyType, { nullable: true, description: 'Null until two full tanks' })
+  async fuelEconomy(@Parent() asset: Asset, @Context() ctx: Ctx): Promise<FuelEconomy | null> {
+    return fuelEconomy(await this.loaders.for(ctx).fuelUpsByAsset.load(asset.id))
+  }
+
+  @Mutation(() => FuelUpType, {
+    description: 'Also records the odometer reading, so km-based due dates move',
+  })
+  recordFuelUp(@Args('input') input: RecordFuelUpInput): Promise<FuelUp> {
+    return this.commands.execute(new RecordFuelUpCommand({ ...input, at: input.at ?? null }))
   }
 }
 

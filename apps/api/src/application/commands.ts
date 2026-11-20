@@ -38,6 +38,20 @@ export class RecordReadingCommand {
   ) {}
 }
 
+export interface FuelUpInput {
+  readonly assetId: string
+  readonly odometerKm: number
+  readonly litres: number
+  readonly cost: number
+  readonly fullTank: boolean
+  readonly at: Date | null
+}
+
+/** A fuel-up is also an odometer reading, so it moves km-based due dates like any reading. */
+export class RecordFuelUpCommand {
+  constructor(readonly input: FuelUpInput) {}
+}
+
 export class AddRenewalCommand {
   constructor(
     readonly assetId: string,

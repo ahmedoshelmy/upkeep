@@ -268,6 +268,38 @@ describe('Upkeep reminders (Postgres + Redis)', () => {
     expect(letter.attemptsMade).toBe(3)
     expect(letter.failedReason).toContain('not visible')
   })
+  it('records fuel-ups as odometer readings and reports full-to-full economy', async () => {
+    const carId = await registerCar('Fuel test car')
+    const fuelUp = `mutation($input: RecordFuelUpInput!) { recordFuelUp(input: $input) { id } }`
+    const day = 86_400_000
+    for (const [daysAgo, odometerKm, litres, cost] of [
+      [20, 10_000, 40, 700],
+      [10, 10_500, 35, 612.5],
+    ]) {
+      const res = await gql(fuelUp, {
+        input: { assetId: carId, odometerKm, litres, cost, at: new Date(Date.now() - daysAgo * day) },
+      })
+      expect(res.errors).toBeUndefined()
+    }
+    const res = await gql<{
+      asset: {
+        readings: { value: number }[]
+        fuelUps: { odometerKm: number }[]
+        fuelEconomy: { litresPer100Km: number; costPerKm: number; distanceKm: number }
+      }
+    }>(
+      `query($id: ID!) { asset(id: $id) { readings { value } fuelUps { odometerKm }
+        fuelEconomy { litresPer100Km costPerKm distanceKm } } }`,
+      { id: carId },
+    )
+    expect(res.data!.asset.readings.map((r) => r.value)).toEqual([10_000, 10_500])
+    expect(res.data!.asset.fuelUps).toHaveLength(2)
+    const economy = res.data!.asset.fuelEconomy
+    expect(economy.distanceKm).toBe(500)
+    expect(economy.litresPer100Km).toBeCloseTo(7)
+    expect(economy.costPerKm).toBeCloseTo(1.225)
+  })
+
   it('rejects a too costly query with 400 before any resolver runs', async () => {
     const nested = 'assets { tasks { reminders { id } } }' // 1 + 10 x (1 + 10 x 11) = 1111 with list factor 10
     await request(api.getHttpServer())

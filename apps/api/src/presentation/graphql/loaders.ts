@@ -1,11 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
 import DataLoader from 'dataloader'
 import type { Asset } from '../../domain/asset'
+import type { FuelUp } from '../../domain/fuel'
 import type { MaintenanceTask } from '../../domain/maintenance-task'
 import type { Renewal } from '../../domain/renewal'
 import {
   ASSETS,
   type AssetRepository,
+  FUEL_UPS,
+  type FuelUpRepository,
   READINGS,
   REMINDERS,
   RENEWALS,
@@ -31,6 +34,7 @@ export class RequestLoaders {
     readonly renewalsByAsset: DataLoader<string, Renewal[]>,
     readonly readingsByAsset: DataLoader<string, StoredReading[]>,
     readonly remindersBySubject: DataLoader<string, Reminder[]>,
+    readonly fuelUpsByAsset: DataLoader<string, FuelUp[]>,
   ) {}
 }
 
@@ -44,6 +48,7 @@ export class LoaderFactory {
     @Inject(RENEWALS) private readonly renewals: RenewalRepository,
     @Inject(READINGS) private readonly readings: ReadingRepository,
     @Inject(REMINDERS) private readonly reminders: ReminderRepository,
+    @Inject(FUEL_UPS) private readonly fuelUps: FuelUpRepository,
   ) {}
 
   /** Loaders live as long as the GraphQL context object, i.e. one HTTP request or one subscription event. */
@@ -69,6 +74,7 @@ export class LoaderFactory {
       new DataLoader(async (ids) =>
         groupBy(ids, await this.reminders.listBySubjects(ids), (r) => r.subjectId),
       ),
+      new DataLoader(async (ids) => groupBy(ids, await this.fuelUps.listByAssets(ids), (f) => f.assetId)),
     )
   }
 }

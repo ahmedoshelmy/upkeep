@@ -1,9 +1,11 @@
 import type { Asset } from '../domain/asset'
+import type { FuelUp } from '../domain/fuel'
 import type { MaintenanceTask } from '../domain/maintenance-task'
 import type { Renewal } from '../domain/renewal'
 import type {
   AssetRepository,
   Clock,
+  FuelUpRepository,
   IdGenerator,
   Mailer,
   NotificationBus,
@@ -75,6 +77,18 @@ export class MemoryReadings implements ReadingRepository {
   }
   async listByAssets(ids: readonly string[]): Promise<StoredReading[]> {
     return this.rows.filter((r) => ids.includes(r.assetId))
+  }
+}
+
+export class MemoryFuelUps implements FuelUpRepository {
+  readonly rows: FuelUp[] = []
+  constructor(private readonly readings: MemoryReadings) {}
+  async addWithReading(f: FuelUp, reading: StoredReading): Promise<void> {
+    await this.readings.add(reading)
+    this.rows.push(f)
+  }
+  async listByAssets(ids: readonly string[]): Promise<FuelUp[]> {
+    return this.rows.filter((f) => ids.includes(f.assetId))
   }
 }
 

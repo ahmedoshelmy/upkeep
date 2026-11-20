@@ -21,6 +21,12 @@ input AddTaskInput {
 
 type Asset {
   createdAt: DateTime!
+
+  """Null until two full tanks"""
+  fuelEconomy: FuelEconomy
+
+  """Lowest odometer first"""
+  fuelUps: [FuelUp!]!
   id: ID!
   kind: AssetKind!
   name: String!
@@ -94,6 +100,24 @@ enum DueReason {
   TIME
 }
 
+"""Full-to-full: only stretches between two full tanks count"""
+type FuelEconomy {
+  cost: Float!
+  costPerKm: Float!
+  distanceKm: Float!
+  litres: Float!
+  litresPer100Km: Float!
+}
+
+type FuelUp {
+  at: DateTime!
+  cost: Float!
+  fullTank: Boolean!
+  id: ID!
+  litres: Float!
+  odometerKm: Float!
+}
+
 type MaintenanceTask {
   assetId: ID!
 
@@ -122,6 +146,9 @@ type Mutation {
   """Done: the baseline resets and the next due date is planned"""
   completeTask(input: CompleteTaskInput!): MaintenanceTask!
   markNotificationRead(id: ID!): Notification!
+
+  """Also records the odometer reading, so km-based due dates move"""
+  recordFuelUp(input: RecordFuelUpInput!): FuelUp!
 
   """Odometer (car) or electricity meter (home); must not go backwards"""
   recordReading(input: RecordReadingInput!): Reading!
@@ -156,6 +183,17 @@ type Reading {
   id: ID!
   meter: Meter!
   value: Float!
+}
+
+input RecordFuelUpInput {
+  assetId: ID!
+  at: DateTime
+  cost: Float!
+  fullTank: Boolean! = true
+  litres: Float!
+
+  """Odometer at the pump; recorded as a reading too"""
+  odometerKm: Float!
 }
 
 input RecordReadingInput {

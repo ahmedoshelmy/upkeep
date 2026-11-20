@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { DataSource } from 'typeorm'
 import type { Asset, AssetKind, MeterKind } from '../../domain/asset'
+import type { FuelUp } from '../../domain/fuel'
 import type { MaintenanceTask } from '../../domain/maintenance-task'
 import type { Renewal, RenewalKind } from '../../domain/renewal'
 import type {
   AssetRepository,
+  FuelUpRepository,
   NotificationRepository,
   ReadingRepository,
   ReminderRepository,
@@ -49,6 +51,16 @@ const toReading = (r: Row): StoredReading => ({
   meter: r.meter as MeterKind,
   at: date(r.at),
   value: Number(r.value),
+})
+
+const toFuelUp = (r: Row): FuelUp => ({
+  id: r.id as string,
+  assetId: r.asset_id as string,
+  at: date(r.at),
+  odometerKm: Number(r.odometer_km),
+  litres: Number(r.litres),
+  cost: Number(r.cost),
+  fullTank: r.full_tank as boolean,
 })
 
 const toRenewal = (r: Row): Renewal => ({
@@ -175,6 +187,37 @@ export class SqlReadingRepository implements ReadingRepository {
       [assetIds],
     )
     return rows.map(toReading)
+  }
+}
+
+@Injectable()
+export class SqlFuelUpRepository implements FuelUpRepository {
+  constructor(@Inject(DATA_SOURCE) private readonly db: DataSource) {}
+
+  async addWithReading(f: FuelUp, reading: StoredReading): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.query(`INSERT INTO readings (id, asset_id, meter, at, value) VALUES ($1, $2, $3, $4, $5)`, [
+        reading.id,
+        reading.assetId,
+        reading.meter,
+        reading.at,
+        reading.value,
+      ])
+      await tx.query(
+        `INSERT INTO fuel_ups (id, asset_id, reading_id, at, odometer_km, litres, cost, full_tank)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [f.id, f.assetId, reading.id, f.at, f.odometerKm, f.litres, f.cost, f.fullTank],
+      )
+    })
+  }
+
+  async listByAssets(assetIds: readonly string[]): Promise<FuelUp[]> {
+    if (assetIds.length === 0) return []
+    const rows: Row[] = await this.db.query(
+      `SELECT * FROM fuel_ups WHERE asset_id = ANY($1::uuid[]) ORDER BY odometer_km, at`,
+      [assetIds],
+    )
+    return rows.map(toFuelUp)
   }
 }
 

@@ -37,6 +37,14 @@ const RecordReading = graphql(`
   }
 `)
 
+const RecordFuelUp = graphql(`
+  mutation RecordFuelUp($input: RecordFuelUpInput!) {
+    recordFuelUp(input: $input) {
+      id
+    }
+  }
+`)
+
 const AddRenewal = graphql(`
   mutation AddRenewal($input: AddRenewalInput!) {
     addRenewal(input: $input) {
@@ -68,10 +76,12 @@ export function Forms() {
   const [, registerAsset] = useMutation(RegisterAsset)
   const [, addTask] = useMutation(AddTask)
   const [, recordReading] = useMutation(RecordReading)
+  const [, recordFuelUp] = useMutation(RecordFuelUp)
   const [, addRenewal] = useMutation(AddRenewal)
   const asset = useFormAction()
   const task = useFormAction()
   const reading = useFormAction()
+  const fuel = useFormAction()
   const renewal = useFormAction()
 
   const submit =
@@ -190,6 +200,53 @@ export function Forms() {
         />
         <button type="submit">Record</button>
         {reading.message && <p className="error">{reading.message}</p>}
+      </form>
+
+      <form
+        onSubmit={submit(
+          (form, d) =>
+            void fuel.run(form, () =>
+              recordFuelUp(
+                {
+                  input: {
+                    assetId: str(d.get('assetId')),
+                    odometerKm: Number(d.get('odometerKm')),
+                    litres: Number(d.get('litres')),
+                    cost: Number(d.get('cost')),
+                    fullTank: d.get('fullTank') === 'on',
+                  },
+                },
+                context,
+              ),
+            ),
+        )}
+      >
+        <h3>Fuel-up</h3>
+        {assetSelect('assetId', (k) => k === 'CAR')}
+        <input
+          name="odometerKm"
+          type="number"
+          min={0}
+          step="any"
+          placeholder="Odometer km"
+          required
+          aria-label="Odometer"
+        />
+        <input
+          name="litres"
+          type="number"
+          min={0.1}
+          step="any"
+          placeholder="Litres"
+          required
+          aria-label="Litres"
+        />
+        <input name="cost" type="number" min={0} step="any" placeholder="Cost" required aria-label="Cost" />
+        <label className="small muted">
+          <input name="fullTank" type="checkbox" defaultChecked /> Full tank
+        </label>
+        <button type="submit">Record fuel-up</button>
+        {fuel.message && <p className="error">{fuel.message}</p>}
       </form>
 
       <form

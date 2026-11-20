@@ -4,12 +4,14 @@ import { type Asset, createAsset, meterOf } from '../domain/asset'
 import { ensure } from '../domain/errors'
 import { intervalRule } from '../domain/interval-rule'
 import { type MaintenanceTask, completeTask, createTask } from '../domain/maintenance-task'
+import { type FuelUp, assertValidFuelUp } from '../domain/fuel'
 import { assertMonotonic } from '../domain/readings'
 import { type Renewal, createRenewal, renew } from '../domain/renewal'
 import {
   AddRenewalCommand,
   AddTaskCommand,
   CompleteTaskCommand,
+  RecordFuelUpCommand,
   RecordReadingCommand,
   RegisterAssetCommand,
   RenewCommand,
@@ -21,6 +23,8 @@ import {
   type AssetRepository,
   CLOCK,
   type Clock,
+  FUEL_UPS,
+  type FuelUpRepository,
   ID_GENERATOR,
   type IdGenerator,
   READINGS,
@@ -116,6 +120,37 @@ export class RecordReadingHandler implements ICommandHandler<RecordReadingComman
     await this.readings.add(reading)
     this.events.publish(new ReadingRecorded(assetId))
     return reading
+  }
+}
+
+@CommandHandler(RecordFuelUpCommand)
+export class RecordFuelUpHandler implements ICommandHandler<RecordFuelUpCommand, FuelUp> {
+  constructor(
+    @Inject(ASSETS) private readonly assets: AssetRepository,
+    @Inject(READINGS) private readonly readings: ReadingRepository,
+    @Inject(FUEL_UPS) private readonly fuelUps: FuelUpRepository,
+    @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly events: EventBus,
+  ) {}
+
+  async execute({ input }: RecordFuelUpCommand): Promise<FuelUp> {
+    const asset = await requireAsset(this.assets, input.assetId)
+    ensure(asset.kind === 'CAR', 'Only a car takes fuel')
+    assertValidFuelUp(input.litres, input.cost)
+    const at = input.at ?? this.clock.now()
+    const reading: StoredReading = {
+      id: this.ids.next(),
+      assetId: asset.id,
+      meter: 'ODOMETER_KM',
+      at,
+      value: input.odometerKm,
+    }
+    assertMonotonic(await this.readings.listByAssets([asset.id]), reading)
+    const fuelUp: FuelUp = { id: this.ids.next(), ...input, at }
+    await this.fuelUps.addWithReading(fuelUp, reading)
+    this.events.publish(new ReadingRecorded(asset.id))
+    return fuelUp
   }
 }
 

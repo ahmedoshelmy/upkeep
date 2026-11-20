@@ -118,6 +118,25 @@ export class UsageType {
   @Field(() => BillEstimateType, { nullable: true }) monthlyBill!: BillEstimateType | null
 }
 
+@ObjectType('FuelUp')
+export class FuelUpType {
+  @Field(() => ID) id!: string
+  @Field() at!: Date
+  @Field(() => Float) odometerKm!: number
+  @Field(() => Float) litres!: number
+  @Field(() => Float) cost!: number
+  @Field() fullTank!: boolean
+}
+
+@ObjectType('FuelEconomy', { description: 'Full-to-full: only stretches between two full tanks count' })
+export class FuelEconomyType {
+  @Field(() => Float) distanceKm!: number
+  @Field(() => Float) litres!: number
+  @Field(() => Float) cost!: number
+  @Field(() => Float) litresPer100Km!: number
+  @Field(() => Float) costPerKm!: number
+}
+
 @ObjectType('Notification')
 export class NotificationType {
   @Field(() => ID) id!: string
@@ -161,6 +180,16 @@ export class CompleteTaskInput {
 export class RecordReadingInput {
   @Field(() => ID) assetId!: string
   @Field(() => Float) value!: number
+  @Field(() => Date, { nullable: true }) at?: Date | null
+}
+
+@InputType()
+export class RecordFuelUpInput {
+  @Field(() => ID) assetId!: string
+  @Field(() => Float, { description: 'Odometer at the pump; recorded as a reading too' }) odometerKm!: number
+  @Field(() => Float) litres!: number
+  @Field(() => Float) cost!: number
+  @Field({ defaultValue: true }) fullTank!: boolean
   @Field(() => Date, { nullable: true }) at?: Date | null
 }
 

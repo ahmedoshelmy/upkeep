@@ -32,6 +32,11 @@ export const AssetsQuery = graphql(`
         at
         value
       }
+      fuelEconomy {
+        litresPer100Km
+        costPerKm
+        distanceKm
+      }
       usage {
         perDay
         monthlyBill {
@@ -78,6 +83,13 @@ export function Assets({ now }: { now: Date }) {
                       · {formatNumber(asset.usage.perDay, 1)} {unit}/day
                     </span>
                   )}
+                </p>
+              )}
+              {asset.fuelEconomy && (
+                <p className="fuel">
+                  {formatNumber(asset.fuelEconomy.litresPer100Km, 1)} L/100 km ·{' '}
+                  {formatNumber(asset.fuelEconomy.costPerKm, 2)} per km
+                  <span className="muted"> (over {formatNumber(asset.fuelEconomy.distanceKm)} km)</span>
                 </p>
               )}
               {asset.usage.monthlyBill && (

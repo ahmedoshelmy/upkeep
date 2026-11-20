@@ -15,13 +15,14 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  */
 type Documents = {
     "\n  subscription NotificationAdded {\n    notificationAdded {\n      id\n      message\n    }\n  }\n": typeof types.NotificationAddedDocument,
-    "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n": typeof types.AssetsDocument,
+    "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      fuelEconomy {\n        litresPer100Km\n        costPerKm\n        distanceKm\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n": typeof types.AssetsDocument,
     "\n  query DueSoon($withinDays: Int!) {\n    dueSoon(withinDays: $withinDays) {\n      subjectType\n      subjectId\n      title\n      dueAt\n      dueKm\n      reason\n      asset {\n        id\n        name\n        kind\n      }\n    }\n  }\n": typeof types.DueSoonDocument,
     "\n  mutation CompleteTask($input: CompleteTaskInput!) {\n    completeTask(input: $input) {\n      id\n      lastDoneAt\n    }\n  }\n": typeof types.CompleteTaskDocument,
     "\n  query AssetNames {\n    assets {\n      id\n      name\n      kind\n    }\n  }\n": typeof types.AssetNamesDocument,
     "\n  mutation RegisterAsset($input: RegisterAssetInput!) {\n    registerAsset(input: $input) {\n      id\n    }\n  }\n": typeof types.RegisterAssetDocument,
     "\n  mutation AddTask($input: AddTaskInput!) {\n    addTask(input: $input) {\n      id\n    }\n  }\n": typeof types.AddTaskDocument,
     "\n  mutation RecordReading($input: RecordReadingInput!) {\n    recordReading(input: $input) {\n      id\n    }\n  }\n": typeof types.RecordReadingDocument,
+    "\n  mutation RecordFuelUp($input: RecordFuelUpInput!) {\n    recordFuelUp(input: $input) {\n      id\n    }\n  }\n": typeof types.RecordFuelUpDocument,
     "\n  mutation AddRenewal($input: AddRenewalInput!) {\n    addRenewal(input: $input) {\n      id\n    }\n  }\n": typeof types.AddRenewalDocument,
     "\n  query Notifications {\n    notifications(limit: 15) {\n      id\n      reminderId\n      title\n      message\n      createdAt\n      readAt\n    }\n  }\n": typeof types.NotificationsDocument,
     "\n  mutation MarkRead($id: ID!) {\n    markNotificationRead(id: $id) {\n      id\n      readAt\n    }\n  }\n": typeof types.MarkReadDocument,
@@ -29,13 +30,14 @@ type Documents = {
 };
 const documents: Documents = {
     "\n  subscription NotificationAdded {\n    notificationAdded {\n      id\n      message\n    }\n  }\n": types.NotificationAddedDocument,
-    "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n": types.AssetsDocument,
+    "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      fuelEconomy {\n        litresPer100Km\n        costPerKm\n        distanceKm\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n": types.AssetsDocument,
     "\n  query DueSoon($withinDays: Int!) {\n    dueSoon(withinDays: $withinDays) {\n      subjectType\n      subjectId\n      title\n      dueAt\n      dueKm\n      reason\n      asset {\n        id\n        name\n        kind\n      }\n    }\n  }\n": types.DueSoonDocument,
     "\n  mutation CompleteTask($input: CompleteTaskInput!) {\n    completeTask(input: $input) {\n      id\n      lastDoneAt\n    }\n  }\n": types.CompleteTaskDocument,
     "\n  query AssetNames {\n    assets {\n      id\n      name\n      kind\n    }\n  }\n": types.AssetNamesDocument,
     "\n  mutation RegisterAsset($input: RegisterAssetInput!) {\n    registerAsset(input: $input) {\n      id\n    }\n  }\n": types.RegisterAssetDocument,
     "\n  mutation AddTask($input: AddTaskInput!) {\n    addTask(input: $input) {\n      id\n    }\n  }\n": types.AddTaskDocument,
     "\n  mutation RecordReading($input: RecordReadingInput!) {\n    recordReading(input: $input) {\n      id\n    }\n  }\n": types.RecordReadingDocument,
+    "\n  mutation RecordFuelUp($input: RecordFuelUpInput!) {\n    recordFuelUp(input: $input) {\n      id\n    }\n  }\n": types.RecordFuelUpDocument,
     "\n  mutation AddRenewal($input: AddRenewalInput!) {\n    addRenewal(input: $input) {\n      id\n    }\n  }\n": types.AddRenewalDocument,
     "\n  query Notifications {\n    notifications(limit: 15) {\n      id\n      reminderId\n      title\n      message\n      createdAt\n      readAt\n    }\n  }\n": types.NotificationsDocument,
     "\n  mutation MarkRead($id: ID!) {\n    markNotificationRead(id: $id) {\n      id\n      readAt\n    }\n  }\n": types.MarkReadDocument,
@@ -63,7 +65,7 @@ export function graphql(source: "\n  subscription NotificationAdded {\n    notif
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      fuelEconomy {\n        litresPer100Km\n        costPerKm\n        distanceKm\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  query Assets {\n    assets {\n      id\n      kind\n      name\n      tasks {\n        id\n        title\n        everyKm\n        everyMonths\n        due {\n          dueAt\n          dueKm\n          reason\n        }\n      }\n      renewals {\n        id\n        kind\n        title\n        expiresAt\n      }\n      readings {\n        id\n        at\n        value\n      }\n      fuelEconomy {\n        litresPer100Km\n        costPerKm\n        distanceKm\n      }\n      usage {\n        perDay\n        monthlyBill {\n          kwh\n          total\n          currency\n          bandIndex\n        }\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -88,6 +90,10 @@ export function graphql(source: "\n  mutation AddTask($input: AddTaskInput!) {\n
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation RecordReading($input: RecordReadingInput!) {\n    recordReading(input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation RecordReading($input: RecordReadingInput!) {\n    recordReading(input: $input) {\n      id\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RecordFuelUp($input: RecordFuelUpInput!) {\n    recordFuelUp(input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation RecordFuelUp($input: RecordFuelUpInput!) {\n    recordFuelUp(input: $input) {\n      id\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

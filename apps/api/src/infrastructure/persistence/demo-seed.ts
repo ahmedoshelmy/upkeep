@@ -4,6 +4,7 @@ import type { Asset } from '../../domain/asset'
 import {
   AddRenewalCommand,
   AddTaskCommand,
+  RecordFuelUpCommand,
   RecordReadingCommand,
   RegisterAssetCommand,
 } from '../../application/commands'
@@ -26,6 +27,16 @@ export async function seedDemoData(app: INestApplicationContext): Promise<void> 
     [10, 57_700],
   ] as const) {
     await commands.execute(new RecordReadingCommand(car.id, km, ago(days)))
+  }
+  for (const [days, km, litres, cost, fullTank] of [
+    [33, 56_504, 40, 710, true],
+    [24, 56_972, 20, 355, false],
+    [15, 57_440, 47, 834, true],
+    [6, 57_900, 32, 568, true],
+  ] as const) {
+    await commands.execute(
+      new RecordFuelUpCommand({ assetId: car.id, odometerKm: km, litres, cost, fullTank, at: ago(days) }),
+    )
   }
   const task = (
     title: string,
