@@ -1,0 +1,126 @@
+name: upkeep
+
+x-app-env: &app-env
+  DATABASE_URL: postgres://${POSTGRES_USER:-upkeep}:${POSTGRES_PASSWORD:-upkeep}@postgres:5432/upkeep
+  REDIS_URL: redis://redis:6379
+  LEAD_DAYS: ${LEAD_DAYS:-30,7,1}
+  MAIL_SMTP_URL: ${MAIL_SMTP_URL:-smtp://mailpit:1025}
+  MAIL_FROM: ${MAIL_FROM:-upkeep@example.com}
+  MAIL_TO: ${MAIL_TO:-owner@example.com}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: upkeep
+      POSTGRES_USER: ${POSTGRES_USER:-upkeep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-upkeep}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d upkeep']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  redis:
+    image: redis:7-alpine
+    # BullMQ needs keys kept: never evict.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8025/livez']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+
+  api:
+    build: { context: . }
+    image: upkeep-api
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *app-env
+      DEMO_DATA: ${DEMO_DATA:-true}
+    ports:
+      - '3100:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  worker:
+    build: { context: . }
+    image: upkeep-api
+    command: ['node', 'dist/worker.js']
+    restart: unless-stopped
+    depends_on:
+      # The API runs the migrations; the worker starts once the schema exists.
+      api: { condition: service_healthy }
+    environment:
+      <<: *app-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3001/health/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    deploy:
+      # Competing consumers: `docker compose up --scale worker=3` shares one queue.
+      replicas: 1
+      resources:
+        limits:
+          memory: 192m
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: upkeep-web
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - '8086:8080'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/healthz']
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+
+volumes:
+  pgdata:
+  redisdata:
