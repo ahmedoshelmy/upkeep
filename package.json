@@ -1,0 +1,44 @@
+{
+  "name": "upkeep",
+  "private": true,
+  "description": "Car and home upkeep: maintenance intervals, meter readings and renewals, with reminders that actually fire.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tests/tsconfig.json --noEmit",
+    "lint": "eslint . && prettier --check . && npm run lint -w @upkeep/web",
+    "format": "prettier --write .",
+    "test": "npm run test:unit && npm run test:web",
+    "test:unit": "jest --selectProjects unit",
+    "test:integration": "jest --selectProjects integration --runInBand",
+    "test:web": "npm test -w @upkeep/web",
+    "codegen": "npm run codegen -w @upkeep/web",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@nestjs/testing": "^11.2.11",
+    "@swc/core": "^1.16.22",
+    "@swc/jest": "^0.2.39",
+    "@testcontainers/postgresql": "^12.2.2",
+    "@testcontainers/redis": "^12.2.2",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.20.5",
+    "@types/supertest": "^7.2.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-boundaries": "^7.4.4",
+    "jest": "^29.7.0",
+    "prettier": "^3.10.1",
+    "supertest": "^7.3.2",
+    "testcontainers": "^12.2.2",
+    "typescript": "5.9",
+    "typescript-eslint": "^8.73.0"
+  }
+}

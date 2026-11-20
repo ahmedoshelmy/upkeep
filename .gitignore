@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.pem
+.idea/
+.vscode/
+*.swp
+# Dev-only local copy of the scraper library (never committed)
+vendor/
