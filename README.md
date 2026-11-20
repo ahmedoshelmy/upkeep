@@ -21,6 +21,10 @@ reminder jobs are replanned every time something moves that date.
   queue**, a **repeatable** sweep job, and a **separate worker process** (competing consumers).
 - **DDD-style domain in pure TypeScript**: the whichever-first interval rule, monotonic meter readings, usage
   projection, an Egyptian **banded electricity tariff** estimate, reminder planning and snooze.
+- **GraphQL hardening**: a validation rule rejects over-deep or over-costly queries (list fields weigh 10x,
+  aliases count) before any resolver runs.
+- **Resilient saga step**: a failed reminder (re)plan is retried with exponential backoff, and each retry first
+  cancels what the failed try stored or enqueued.
 - **Clean Architecture** with the dependency rule enforced by lint (`eslint-plugin-boundaries`).
 - **Testcontainers** (Postgres + Redis) end-to-end test: mutation -> saga -> delayed job with the right delay ->
   worker fires -> notification stored -> subscription receives it; a failing job is retried then dead-lettered.
@@ -82,8 +86,8 @@ Needs Docker (or Podman with the Docker CLI).
 cp .env.example .env                  # optional: every value has a local default
 docker compose up -d --build --wait
 ./scripts/smoke.sh                    # health + car + oil change due in 1 minute -> reminder fired (bounded wait)
-open http://localhost:8086            # the web app (synthetic demo data with DEMO_DATA=true)
-open http://localhost:8025            # Mailpit: the reminder mails
+# web app (synthetic demo data with DEMO_DATA=true): http://localhost:8086
+# Mailpit, the reminder mails:                     http://localhost:8025
 docker compose up -d --scale worker=3 # competing consumers on one queue
 docker compose down -v
 ```
@@ -109,14 +113,14 @@ npm run typecheck         # tsc strict for the API, the web app and the tests
 npm test                  # unit tests (jest) + web tests (vitest)
 npm run test:integration  # needs Docker: Testcontainers Postgres + Redis
 npm run build
-npm run schema -w @upkeep/api && npm run codegen   # after changing a resolver or a query
+npm run schema -w @upkeep/api && npm run codegen   # after changing a resolver or a query (needs npm run build)
 ```
 
 Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` and `REDIS_URL` set (see
 `.env.example`): `npm run start -w @upkeep/api` and `npm run start:worker -w @upkeep/api`; the web dev server
 (`npm run dev -w @upkeep/web`) proxies `/graphql` to `API_URL` (default `http://localhost:3000`).
 
-## Design notes (talking points)
+## Interview talking points
 
 - **The core rule** is a pure function: due = min(time side, distance side projected through km/day, known date).
   Without readings the distance side cannot become a date and time decides; a car that is not driven never becomes
@@ -133,21 +137,31 @@ Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` 
   "the due date may have moved". Honest trade-off: the query side is plain reads, so CQRS there is uniformity only.
 - **Exactly-once effects over at-least-once delivery**: job id = reminder id, status check in the handler, unique
   notification per reminder, fire and mark FIRED in one transaction; fan-out and mail never fail the job.
+- **Retry where the saga can fail** (`application/retry.ts`): planning is "cancel old plan, store rows, enqueue
+  jobs". A Redis blip between those steps used to leave rows without jobs until the sweep found them past due.
+  Now the whole step is retried with backoff (`PLAN_ATTEMPTS`, `PLAN_BACKOFF_MS`); it is safe to repeat because
+  `replacePlan` cancels the half-stored try and job id = reminder id. The wait goes through the clock port, so the
+  test asserts the 100/200 ms backoff without sleeping. Trade-off vs an outbox: an API crash mid-retry still loses
+  the plan; the sweep stays the safety net.
+- **Query depth and cost limits** (`presentation/graphql/query-limits.ts`): a graphql-js `ValidationRule` walks the
+  operation with fragments inlined and list-ness read from the schema: cost = 1 per field, a list field's selection
+  x10. Defaults depth 8, cost 5000 (`GRAPHQL_MAX_DEPTH`, `GRAPHQL_MAX_COST`); a unit test checks that every
+  operation of the web app stays under them, and a Testcontainers test checks the 400. Subscriptions over
+  graphql-ws are not run through it (they are a single tiny field).
 - **Testability**: handlers take ports (clock, ids, repositories, queue, bus, mailer); unit tests use in-memory fakes
   and a settable clock; the integration test runs the API and a worker in-process against real containers.
 
 ## Status
 
-Working: the whole flow above, with 37 unit tests (domain + handlers), 3 web tests and 5 Testcontainers
-integration tests (including GraphQL e2e through supertest, a real graphql-ws subscription, and two competing
-workers firing each reminder exactly once).
+Working: the whole flow above, with 48 unit tests (domain, handlers, retry, query limits), 3 web tests and 6 Testcontainers
+integration tests (including GraphQL e2e through supertest, a real graphql-ws subscription, two competing
+workers firing each reminder exactly once, and the query cost limit).
 
 Known gaps and next steps:
 
 - No authentication or multi-user ownership: it is a single-user tool for now.
-- Saga planning failures are logged, not retried (the sweep covers lost jobs, not a failed plan). Next: plan through
-  a BullMQ "plan" job or an outbox.
-- No query depth/complexity limits on GraphQL; no persisted queries.
+- Saga planning is retried in-process; a crash during the retries still loses the plan (next: an outbox).
+- No persisted queries; the cost model is a static estimate (no per-field weights).
 - Meter replacement/rollover is not modelled; fuel-ups and cost per km are out of scope (stretch).
 - No Azure/Bicep deployment files in this repo (compose only).
 
