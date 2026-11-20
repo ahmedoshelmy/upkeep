@@ -20,7 +20,8 @@ reminder jobs are replanned every time something moves that date.
 - **BullMQ on Redis**: one **delayed job** per reminder, **retries with exponential backoff**, a **dead-letter
   queue**, a **repeatable** sweep job, and a **separate worker process** (competing consumers).
 - **DDD-style domain in pure TypeScript**: the whichever-first interval rule, monotonic meter readings, usage
-  projection, an Egyptian **banded electricity tariff** estimate, reminder planning and snooze.
+  projection, an Egyptian **banded electricity tariff** estimate, reminder planning and snooze, and **fuel-ups**
+  with full-to-full consumption (L/100 km) and cost per km.
 - **GraphQL hardening**: a validation rule rejects over-deep or over-costly queries (list fields weigh 10x,
   aliases count) before any resolver runs.
 - **Resilient saga step**: a failed reminder (re)plan is retried with exponential backoff, and each retry first
@@ -58,7 +59,8 @@ The main flow:
 2. The saga sends `PlanTaskReminders`. Its handler computes the due moment (whichever first of months, projected
    km and a known date), plans reminders at 30/7/1/0 days before it (dropping past ones; an overdue item gets one
    right away), cancels the old plan and enqueues one delayed BullMQ job per reminder.
-3. A new reading publishes `ReadingRecorded`; the saga replans every km-based task of that asset.
+3. A new reading publishes `ReadingRecorded`; the saga replans every km-based task of that asset. A fuel-up is
+   stored with its odometer reading in one transaction, so it moves due dates too.
 4. When a job comes due, one worker runs `FireReminder`: only a SCHEDULED reminder fires; the notification row is
    unique per reminder, written in the same transaction that marks the reminder FIRED.
 5. The worker publishes the notification on Redis; every API instance relays it to its `notificationAdded`
@@ -137,6 +139,9 @@ Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` 
   "the due date may have moved". Honest trade-off: the query side is plain reads, so CQRS there is uniformity only.
 - **Exactly-once effects over at-least-once delivery**: job id = reminder id, status check in the handler, unique
   notification per reminder, fire and mark FIRED in one transaction; fan-out and mail never fail the job.
+- **Fuel economy, full-to-full**: only the stretch between two full tanks is honest; partial fill-ups inside it
+  count, the first full tank and an open stretch at the end do not. Pure function in `domain/fuel.ts`, exposed as
+  `Asset.fuelEconomy` (DataLoader-batched with `Asset.fuelUps`).
 - **Retry where the saga can fail** (`application/retry.ts`): planning is "cancel old plan, store rows, enqueue
   jobs". A Redis blip between those steps used to leave rows without jobs until the sweep found them past due.
   Now the whole step is retried with backoff (`PLAN_ATTEMPTS`, `PLAN_BACKOFF_MS`); it is safe to repeat because
@@ -153,16 +158,16 @@ Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` 
 
 ## Status
 
-Working: the whole flow above, with 48 unit tests (domain, handlers, retry, query limits), 3 web tests and 6 Testcontainers
+Working: the whole flow above, with 55 unit tests (domain, handlers, retry, query limits, fuel), 3 web tests and 7 Testcontainers
 integration tests (including GraphQL e2e through supertest, a real graphql-ws subscription, two competing
-workers firing each reminder exactly once, and the query cost limit).
+workers firing each reminder exactly once, fuel economy through GraphQL, and the query cost limit).
 
 Known gaps and next steps:
 
 - No authentication or multi-user ownership: it is a single-user tool for now.
 - Saga planning is retried in-process; a crash during the retries still loses the plan (next: an outbox).
 - No persisted queries; the cost model is a static estimate (no per-field weights).
-- Meter replacement/rollover is not modelled; fuel-ups and cost per km are out of scope (stretch).
+- Meter replacement/rollover is not modelled; fuel prices are plain numbers (no currency per fuel-up).
 - No Azure/Bicep deployment files in this repo (compose only).
 
 ## Extracted from Lingo
