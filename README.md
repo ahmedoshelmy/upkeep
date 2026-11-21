@@ -139,9 +139,19 @@ npm run build
 npm run schema -w @upkeep/api && npm run codegen   # after changing a resolver or a query (needs npm run build)
 ```
 
-Run the API and the worker against compose's Postgres/Redis with `DATABASE_URL` and `REDIS_URL` set (see
-`.env.example`): `npm run start -w @upkeep/api` and `npm run start:worker -w @upkeep/api`; the web dev server
-(`npm run dev -w @upkeep/web`) proxies `/graphql` to `API_URL` (default `http://localhost:3000`).
+To run the API and the worker on the host (compose keeps Postgres and Redis internal, so start them with published
+ports):
+
+```bash
+docker run -d --name upkeep-pg -p 5432:5432 \
+  -e POSTGRES_DB=upkeep -e POSTGRES_USER=upkeep -e POSTGRES_PASSWORD=upkeep postgres:17-alpine
+docker run -d --name upkeep-redis -p 6379:6379 redis:7-alpine redis-server --maxmemory-policy noeviction
+export DATABASE_URL=postgres://upkeep:upkeep@localhost:5432/upkeep REDIS_URL=redis://localhost:6379
+npm run build
+npm run start -w @upkeep/api          # :3000, runs its migration on start
+npm run start:worker -w @upkeep/api
+npm run dev -w @upkeep/web            # proxies /graphql to API_URL (default http://localhost:3000)
+```
 
 ## Interview talking points
 
