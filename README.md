@@ -87,6 +87,20 @@ The main flow:
 | `tests/integration` | Testcontainers Postgres + Redis tests |
 | `docs/adr` | Architecture decision records |
 
+## Run in Codespaces
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ahmedoshelmy/upkeep)
+
+The repo carries a dev container (`.devcontainer/`: Node 22 + TypeScript, Docker-in-Docker), so it opens as-is in
+GitHub Codespaces or VS Code Dev Containers and runs `npm ci` on create. Then one command:
+
+```bash
+docker compose up -d --build --wait
+```
+
+Open the **Web** port (8086) from the Ports tab; GraphQL (3100, `/graphql`) and Mailpit (8025, the reminder mails) are
+forwarded too. Prefix the command with `DEMO_DATA=true` for synthetic demo data.
+
 ## Quickstart
 
 Needs Docker (or Podman with the Docker CLI).
